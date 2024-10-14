@@ -7,10 +7,11 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"start": "webpack-dev-server --mode development",
-		"build": "webpack --mode development",
-		"deploy:github": "node deploy-to-github.js"
-	},
+    "start": "webpack-dev-server --mode development --port 3005",
+    "build": "webpack --mode development",
+    "deploy:github": "node deploy-to-github.js"
+},
+
 	"author": "Alejandro Sanchez",
 	"license": "ISC",
 	"devDependencies": {
@@ -65,3 +66,4 @@
 		"react-router": "^6.0.2"
 	}
 }
+
