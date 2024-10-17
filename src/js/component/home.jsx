@@ -3,106 +3,175 @@ import React, { useState, useEffect } from 'react';
 const TodoApp = () => {
   const [tasks, setTasks] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  const [userExists, setUserExists] = useState(true);
 
-  // Se cargan tareas desde la API
-  useEffect(() => {
-    fetch('https://playground.4geeks.com/todo/user/alesanchezr')
-      .then(response => response.json())
-      .then(data => {
-        console.log('Tareas cargadas:', data); // Log aquí
-        if (Array.isArray(data)) {
-          setTasks(data);
-        } else {
-          console.error('Expected an array but received:', data);
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching tasks:', error);
+  const USER_ID = 'agustinp1';
+
+  // Función para crear el usuario
+  const createUser = async () => {
+    try {
+      const response = await fetch('https://playground.4geeks.com/todo/users/agustinp', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: USER_ID }),
       });
+
+      if (response.status === 201) {
+        console.log('Usuario creado:', USER_ID);
+        setUserExists(true);
+      } else if (response.status === 422) {
+        console.log('El usuario ya existe:', USER_ID);
+        setUserExists(true);
+      } else {
+        setUserExists(false);
+      }
+    } catch (error) {
+      console.error('Error creando usuario:', error);
+      setUserExists(false);
+    }
+  };
+
+  // Función para cargar tareas desde la API
+  const loadTasks = async () => {
+    try {
+      const response = await fetch(`https://playground.4geeks.com/todo/users/agustinp`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.todos)) {
+          setTasks(data.todos);
+        }
+      } else {
+        setUserExists(false);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setUserExists(false);
+    }
+  };
+
+  // Llamamo a createUser y loadTasks
+  useEffect(() => {
+    const initializeUser = async () => {
+      await createUser();
+      loadTasks();
+    };
+
+    initializeUser();
   }, []);
 
-  // Agrego la función para agregar una nueva tarea
+  // Función para agregar una nueva tarea
   const addTask = () => {
     if (inputValue.trim() !== '') {
-      const newTasks = [...tasks, inputValue.trim()];
-      console.log('Nueva tarea agregada:', inputValue.trim()); // Log aquí
-      setTasks(newTasks);
-      updateTasksOnServer(newTasks);
+      const newTask = { label: inputValue.trim(), is_done: false };
+      setTasks(prevTasks => [...prevTasks, newTask]);
+      addTaskToServer(newTask);
       setInputValue('');
+    }
+  };
+
+  // Función para agregar una tarea al servidor
+  const addTaskToServer = async (task) => {
+    try {
+      const response = await fetch(`https://playground.4geeks.com/todo/users/agustinp`, {
+        method: 'POST',
+        body: JSON.stringify(task),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Tarea agregada:', data);
+      } else {
+        console.error('Error al agregar tarea:', await response.json());
+      }
+    } catch (error) {
+      console.error('Error adding task:', error);
     }
   };
 
   // Función para eliminar una tarea
   const handleDelete = (index) => {
-    console.log('Tarea eliminada:', tasks[index]); // Log aquí
+    const taskId = tasks[index].id;
     const newTasks = tasks.filter((_, i) => i !== index);
     setTasks(newTasks);
-    updateTasksOnServer(newTasks);
+    deleteTaskFromServer(taskId);
   };
 
-  // Función para actualizar tareas en el servidor
-  const updateTasksOnServer = (newTasks) => {
-    console.log('Actualizando tareas en el servidor:', newTasks); // Log aquí
-    fetch('https://playground.4geeks.com/todo/user/alesanchezr', {
-      method: "PUT",
-      body: JSON.stringify(newTasks),
-      headers: {
-        "Content-Type": "application/json"
+  // Función para eliminar una tarea del servidor
+  const deleteTaskFromServer = async (taskId) => {
+    try {
+      const response = await fetch(`https://playground.4geeks.com/todo/todos/${USER_ID}/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Tarea eliminada:', data);
+      } else {
+        console.error('Error al eliminar tarea:', await response.json());
       }
-    })
-    .then(resp => resp.json())
-    .then(data => console.log('Tareas actualizadas:', data))
-    .catch(error => console.error('Error updating tasks:', error));
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
-  // Función para limpiar todas las tareas
+  
   const clearTasks = () => {
-    console.log('Limpiando todas las tareas'); // Log aquí
     setTasks([]);
-    updateTasksOnServer([]);
+    
   };
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>todos</h1>
-      <div style={styles.todoBox}>
-        <input
-          type="text"
-          placeholder="What needs to be done?"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' ? addTask() : null}
-          style={styles.input}
-        />
-        <ul style={styles.taskList}>
-          {tasks.length === 0 ? (
-            <li style={styles.noTasks}>No hay tareas, añadir tareas</li>
-          ) : (
-            tasks.map((task, index) => (
-              <li
-                key={index}
-                style={styles.taskItem}
-                onMouseEnter={(e) => e.currentTarget.querySelector('button').style.visibility = 'visible'}
-                onMouseLeave={(e) => e.currentTarget.querySelector('button').style.visibility = 'hidden'}
-              >
-                {task}
-                <button
-                  onClick={() => handleDelete(index)}
-                  style={styles.deleteButton}
+      {userExists ? (
+        <div style={styles.todoBox}>
+          <input
+            type="text"
+            placeholder="What needs to be done?"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' ? addTask() : null}
+            style={styles.input}
+          />
+          <ul style={styles.taskList}>
+            {tasks.length === 0 ? (
+              <li style={styles.noTasks}>No hay tareas, añadir tareas</li>
+            ) : (
+              tasks.map((task, index) => (
+                <li
+                  key={index}
+                  style={styles.taskItem}
                 >
-                  🗑️
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-        <div style={styles.footer}>
-          {tasks.length} {tasks.length === 1 ? 'item' : 'items'} left
+                  {task.label}
+                  <button
+                    onClick={() => handleDelete(index)}
+                    style={styles.deleteButton}
+                  >
+                    🗑️
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+          <div style={styles.footer}>
+            {tasks.length} {tasks.length === 1 ? 'item' : 'items'} left
+          </div>
+          <button onClick={clearTasks} style={styles.clearButton}>
+            Clear All
+          </button>
         </div>
-        <button onClick={clearTasks} style={styles.clearButton}>
-          Clear All
-        </button>
-      </div>
+      ) : (
+        <div style={styles.errorMessage}>El usuario no existe. Por favor, crea un usuario válido.</div>
+      )}
     </div>
   );
 };
@@ -164,7 +233,6 @@ const styles = {
     cursor: 'pointer',
     fontSize: '18px',
     color: '#cc9a9a',
-    visibility: 'hidden',
   },
   footer: {
     textAlign: 'left',
@@ -180,8 +248,19 @@ const styles = {
     borderRadius: '4px',
     cursor: 'pointer',
   },
+  errorMessage: {
+    color: 'red',
+    textAlign: 'center',
+  },
 };
 
 export default TodoApp;
+
+
+
+
+
+
+
 
 
