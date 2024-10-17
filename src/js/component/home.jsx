@@ -11,29 +11,35 @@ const TodoApp = () => {
   const createUser = async () => {
     try {
       const response = await fetch('https://playground.4geeks.com/todo/users/agustinp', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: USER_ID }),
+        
       });
-
+  
       if (response.status === 201) {
         console.log('Usuario creado:', USER_ID);
         setUserExists(true);
-      } else if (response.status === 422) {
+        return true;
+      }
+  
+      if (response.status === 422) {
         console.log('El usuario ya existe:', USER_ID);
         setUserExists(true);
-      } else {
-        setUserExists(false);
+        return true;
       }
+  
+      console.log('Error al crear usuario. Estado:', response.status);
+      setUserExists(false);
+      return false;
+  
     } catch (error) {
       console.error('Error creando usuario:', error);
       setUserExists(false);
+      return false;
     }
   };
+  
+  
 
+  
   // Función para cargar tareas desde la API
   const loadTasks = async () => {
     try {
@@ -42,8 +48,12 @@ const TodoApp = () => {
         const data = await response.json();
         if (data && Array.isArray(data.todos)) {
           setTasks(data.todos);
+        } else {
+          console.error('Formato de datos inesperado:', data);
         }
       } else {
+        const errorText = await response.text();
+        console.error('Error al cargar tareas, estado:', response.status, 'Mensaje:', errorText);
         setUserExists(false);
       }
     } catch (error) {
@@ -51,16 +61,17 @@ const TodoApp = () => {
       setUserExists(false);
     }
   };
+  
+  
 
   // Llamamo a createUser y loadTasks
   useEffect(() => {
-    const initializeUser = async () => {
-      await createUser();
-      loadTasks();
-    };
+ 
+    loadTasks();
 
-    initializeUser();
-  }, []);
+}, []);
+  
+  
 
   // Función para agregar una nueva tarea
   const addTask = () => {
