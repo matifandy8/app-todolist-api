@@ -7,6 +7,29 @@ const TodoApp = () => {
 
   const USER_ID = 'agustinp';
 
+  // Función para verificar si el usuario existe
+  const checkUserExists = async () => {
+    try {
+      const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`);
+      
+      if (response.ok) {
+        setUserExists(true);
+        await loadTasks();
+      } else if (response.status === 404) {
+        const userCreated = await createUser();
+        if (userCreated) {
+          await loadTasks();
+        }
+      } else {
+        console.error('Error al verificar el usuario:', response.status);
+        setUserExists(false);
+      }
+    } catch (error) {
+      console.error('Error checking user existence:', error);
+      setUserExists(false);
+    }
+  };
+
   // Función para crear el usuario
   const createUser = async () => {
     try {
@@ -15,19 +38,16 @@ const TodoApp = () => {
         headers: { "Content-Type": "application/json" }
       });
 
-      if (response.status === 201 || response.status === 422) {
+      if (response.ok || response.status === 422) {
         console.log('Usuario creado o ya existe:', USER_ID);
-        setUserExists(true);
         return true;
+      } else {
+        const errorData = await response.json();
+        console.error('Error al crear usuario:', errorData);
+        return false;
       }
-
-      console.log('Error al crear usuario. Estado:', response.status);
-      setUserExists(false);
-      return false;
-
     } catch (error) {
       console.error('Error creando usuario:', error);
-      setUserExists(false);
       return false;
     }
   };
@@ -44,7 +64,8 @@ const TodoApp = () => {
           console.error('Formato de datos inesperado:', data);
         }
       } else {
-        console.error('Error al cargar tareas, estado:', response.status);
+        const errorText = await response.text();
+        console.error('Error al cargar tareas, estado:', response.status, 'Mensaje:', errorText);
         setUserExists(false);
       }
     } catch (error) {
@@ -53,18 +74,17 @@ const TodoApp = () => {
     }
   };
 
-  // Llamamos a createUser y loadTasks
+  // Llamo a checkUserExists en useEffect
   useEffect(() => {
-    createUser();
-    loadTasks();
+    checkUserExists();
   }, []);
 
   // Función para agregar una nueva tarea
-  const addTask = async () => {
+  const addTask = () => {
     if (inputValue.trim() !== '') {
       const newTask = { label: inputValue.trim(), is_done: false };
       setTasks(prevTasks => [...prevTasks, newTask]);
-      await addTaskToServer(newTask);
+      addTaskToServer(newTask);
       setInputValue('');
     }
   };
@@ -92,7 +112,15 @@ const TodoApp = () => {
   };
 
   // Función para eliminar una tarea
-  const deleteTask = async (taskId) => {
+  const handleDelete = (index) => {
+    const taskId = tasks[index].id;
+    const newTasks = tasks.filter((_, i) => i !== index);
+    setTasks(newTasks);
+    deleteTaskFromServer(taskId);
+  };
+
+  // Función para eliminar una tarea del servidor
+  const deleteTaskFromServer = async (taskId) => {
     try {
       const response = await fetch(`https://playground.4geeks.com/todo/todos/${USER_ID}/${taskId}`, {
         method: 'DELETE',
@@ -102,8 +130,8 @@ const TodoApp = () => {
       });
 
       if (response.ok) {
-        setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
-        console.log('Tarea eliminada');
+        const data = await response.json();
+        console.log('Tarea eliminada:', data);
       } else {
         console.error('Error al eliminar tarea:', await response.json());
       }
@@ -134,10 +162,13 @@ const TodoApp = () => {
               <li style={styles.noTasks}>No hay tareas, añadir tareas</li>
             ) : (
               tasks.map((task, index) => (
-                <li key={task.id} style={styles.taskItem}>
+                <li
+                  key={index}
+                  style={styles.taskItem}
+                >
                   {task.label}
                   <button
-                    onClick={() => deleteTask(task.id)}
+                    onClick={() => handleDelete(index)}
                     style={styles.deleteButton}
                   >
                     🗑️
@@ -239,6 +270,7 @@ const styles = {
 };
 
 export default TodoApp;
+
 
 
 
