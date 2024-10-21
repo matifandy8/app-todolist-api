@@ -7,103 +7,93 @@ const TodoApp = () => {
 
   const USER_ID = 'agustinp';
 
-  // Función para verificar si el usuario existe
-  const checkUserExists = async () => {
-    try {
-      const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`);
-      
-      if (response.ok) {
-        setUserExists(true);
-        await loadTasks();
-      } else if (response.status === 404) {
-        const userCreated = await createUser();
-        if (userCreated) {
+  // Verificar si el usuario existe y cargar tareas
+  useEffect(() => {
+    const checkUserExists = async () => {
+      try {
+        const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`);
+        
+        if (response.ok) {
+          setUserExists(true);
           await loadTasks();
+        } else if (response.status === 404) {
+          const userCreated = await createUser();
+          if (userCreated) {
+            await loadTasks();
+          }
+        } else {
+          console.error('Error al verificar el usuario:', response.status);
+          setUserExists(false);
         }
-      } else {
-        console.error('Error al verificar el usuario:', response.status);
+      } catch (error) {
+        console.error('Error checking user existence:', error);
         setUserExists(false);
       }
-    } catch (error) {
-      console.error('Error checking user existence:', error);
-      setUserExists(false);
-    }
-  };
+    };
 
-  // Función para crear el usuario
-  const createUser = async () => {
-    try {
-      const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`, {
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }
-      });
+    const createUser = async () => {
+      try {
+        const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
 
-      if (response.ok || response.status === 422) {
-        console.log('Usuario creado o ya existe:', USER_ID);
-        return true;
-      } else {
-        const errorData = await response.json();
-        console.error('Error al crear usuario:', errorData);
+        if (response.ok || response.status === 422) {
+          console.log('Usuario creado o ya existe:', USER_ID);
+          return true;
+        } else {
+          console.error('Error al crear usuario:', await response.json());
+          return false;
+        }
+      } catch (error) {
+        console.error('Error creando usuario:', error);
         return false;
       }
-    } catch (error) {
-      console.error('Error creando usuario:', error);
-      return false;
-    }
-  };
+    };
 
-  // Función para cargar tareas desde la API
-  const loadTasks = async () => {
-    try {
-      const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data && Array.isArray(data.todos)) {
-          setTasks(data.todos);
+    const loadTasks = async () => {
+      try {
+        const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.todos)) {
+            setTasks(data.todos);
+          } else {
+            console.error('Formato de datos inesperado:', data);
+          }
         } else {
-          console.error('Formato de datos inesperado:', data);
+          console.error('Error al cargar tareas:', response.status);
+          setUserExists(false);
         }
-      } else {
-        const errorText = await response.text();
-        console.error('Error al cargar tareas, estado:', response.status, 'Mensaje:', errorText);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
         setUserExists(false);
       }
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-      setUserExists(false);
-    }
-  };
+    };
 
-  // Llamo a checkUserExists en useEffect
-  useEffect(() => {
     checkUserExists();
   }, []);
 
-  // Función para agregar una nueva tarea
-  const addTask = () => {
+  const addTask = async () => {
     if (inputValue.trim() !== '') {
       const newTask = { label: inputValue.trim(), is_done: false };
       setTasks(prevTasks => [...prevTasks, newTask]);
-      addTaskToServer(newTask);
+      await addTaskToServer(newTask);
       setInputValue('');
     }
   };
 
-  // Función para agregar una tarea al servidor
   const addTaskToServer = async (task) => {
     try {
-      const response = await fetch(`https://playground.4geeks.com/todo/users/${USER_ID}`, {
+      const response = await fetch(`https://playground.4geeks.com/todo/todos/${USER_ID}`, {
         method: 'POST',
         body: JSON.stringify(task),
         headers: {
           'Content-Type': 'application/json'
         }
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Tarea agregada:', data);
-      } else {
+  
+      if (!response.ok) {
         console.error('Error al agregar tarea:', await response.json());
       }
     } catch (error) {
@@ -111,37 +101,26 @@ const TodoApp = () => {
     }
   };
 
-  // Función para eliminar una tarea
-  const handleDelete = (index) => {
+  const handleDelete = async (index) => {
     const taskId = tasks[index].id;
     const newTasks = tasks.filter((_, i) => i !== index);
     setTasks(newTasks);
-    deleteTaskFromServer(taskId);
+    await deleteTaskFromServer(taskId);
   };
 
-  // Función para eliminar una tarea del servidor
   const deleteTaskFromServer = async (taskId) => {
     try {
       const response = await fetch(`https://playground.4geeks.com/todo/todos/${USER_ID}/${taskId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Tarea eliminada:', data);
-      } else {
+      if (!response.ok) {
         console.error('Error al eliminar tarea:', await response.json());
       }
     } catch (error) {
       console.error('Error deleting task:', error);
     }
-  };
-
-  const clearTasks = () => {
-    setTasks([]);
   };
 
   return (
@@ -162,17 +141,9 @@ const TodoApp = () => {
               <li style={styles.noTasks}>No hay tareas, añadir tareas</li>
             ) : (
               tasks.map((task, index) => (
-                <li
-                  key={index}
-                  style={styles.taskItem}
-                >
+                <li key={index} style={styles.taskItem}>
                   {task.label}
-                  <button
-                    onClick={() => handleDelete(index)}
-                    style={styles.deleteButton}
-                  >
-                    🗑️
-                  </button>
+                  <button onClick={() => handleDelete(index)} style={styles.deleteButton}>🗑️</button>
                 </li>
               ))
             )}
@@ -180,9 +151,6 @@ const TodoApp = () => {
           <div style={styles.footer}>
             {tasks.length} {tasks.length === 1 ? 'item' : 'items'} left
           </div>
-          <button onClick={clearTasks} style={styles.clearButton}>
-            Clear All
-          </button>
         </div>
       ) : (
         <div style={styles.errorMessage}>El usuario no existe. Por favor, crea un usuario válido.</div>
@@ -255,14 +223,6 @@ const styles = {
     color: '#777',
     marginTop: '20px',
   },
-  clearButton: {
-    marginTop: '20px',
-    padding: '10px',
-    backgroundColor: '#ffcccb',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
   errorMessage: {
     color: 'red',
     textAlign: 'center',
@@ -270,6 +230,8 @@ const styles = {
 };
 
 export default TodoApp;
+
+
 
 
 
