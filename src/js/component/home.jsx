@@ -7,7 +7,7 @@ const TodoApp = () => {
 
   const USER_ID = 'agustinp';
 
-  // Verificar si el usuario existe y cargar tareas
+  // Verificao si el usuario existe y cargar tareas
   useEffect(() => {
     const checkUserExists = async () => {
       try {
@@ -74,15 +74,6 @@ const TodoApp = () => {
     checkUserExists();
   }, []);
 
-  const addTask = async () => {
-    if (inputValue.trim() !== '') {
-      const newTask = { label: inputValue.trim(), is_done: false };
-      setTasks(prevTasks => [...prevTasks, newTask]);
-      await addTaskToServer(newTask);
-      setInputValue('');
-    }
-  };
-
   const addTaskToServer = async (task) => {
     try {
       const response = await fetch(`https://playground.4geeks.com/todo/todos/${USER_ID}`, {
@@ -92,20 +83,13 @@ const TodoApp = () => {
           'Content-Type': 'application/json'
         }
       });
-  
+
       if (!response.ok) {
         console.error('Error al agregar tarea:', await response.json());
       }
     } catch (error) {
       console.error('Error adding task:', error);
     }
-  };
-
-  const handleDelete = async (index) => {
-    const taskId = tasks[index].id;
-    const newTasks = tasks.filter((_, i) => i !== index);
-    setTasks(newTasks);
-    await deleteTaskFromServer(taskId);
   };
 
   const deleteTaskFromServer = async (taskId) => {
@@ -133,7 +117,14 @@ const TodoApp = () => {
             placeholder="What needs to be done?"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' ? addTask() : null}
+            onKeyPress={async (e) => {
+              if (e.key === 'Enter' && inputValue.trim() !== '') {
+                const newTask = { label: inputValue.trim(), is_done: false };
+                setTasks(prevTasks => [...prevTasks, newTask]);
+                await addTaskToServer(newTask);
+                setInputValue('');
+              }
+            }}
             style={styles.input}
           />
           <ul style={styles.taskList}>
@@ -141,9 +132,18 @@ const TodoApp = () => {
               <li style={styles.noTasks}>No hay tareas, añadir tareas</li>
             ) : (
               tasks.map((task, index) => (
-                <li key={index} style={styles.taskItem}>
+                <li key={task.id} style={styles.taskItem}>
                   {task.label}
-                  <button onClick={() => handleDelete(index)} style={styles.deleteButton}>🗑️</button>
+                  <button 
+                    onClick={async () => {
+                      const taskId = task.id;
+                      setTasks(prevTasks => prevTasks.filter((_, i) => i !== index));
+                      await deleteTaskFromServer(taskId);
+                    }} 
+                    style={styles.deleteButton}
+                  >
+                    🗑️
+                  </button>
                 </li>
               ))
             )}
@@ -230,16 +230,4 @@ const styles = {
 };
 
 export default TodoApp;
-
-
-
-
-
-
-
-
-
-
-
-
 
